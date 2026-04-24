@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+  <!-- PWA -->
+  <meta name="theme-color" content="#1a3d2b" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Golf" />
+  <link rel="manifest" href="/manifest.json" />
+
+  <!-- Icons -->
+  <link rel="icon" href="/icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+
+  <title>Golf Companion</title>
+  <meta name="description" content="Persönliches Golf-Logbuch für Runden, Training und Statistiken." />
+
+  <style>
+    html { touch-action: manipulation; }
+    body { margin: 0; overscroll-behavior: none; -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="module" src="/src/main.jsx"></script>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').then(reg => {
+          navigator.serviceWorker.addEventListener('message', e => {
+            if (e.data?.type === 'SYNC_REQUESTED') {
+              window.dispatchEvent(new CustomEvent('golf-sync-requested'));
+            }
+          });
+          window.addEventListener('online', () => {
+            if (reg.sync) reg.sync.register('golf-sync').catch(() => {});
+          });
+        });
+      });
+    }
+    // Prevent double-tap zoom iOS
+    let lastTap = 0;
+    document.addEventListener('touchend', e => {
+      const now = Date.now();
+      if (now - lastTap < 300) e.preventDefault();
+      lastTap = now;
+    }, { passive: false });
+  </script>
+</body>
+</html>
