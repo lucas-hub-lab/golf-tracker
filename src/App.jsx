@@ -288,6 +288,7 @@ const Stat = ({ label, value, sub, accent, small }) => (
 // ─── AUTH ─────────────────────────────────────────────────────────────
 function Auth({ onAuth }) {
   const [mode, setMode] = useState("login");
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
   const [err, setErr] = useState("");
@@ -295,11 +296,25 @@ function Auth({ onAuth }) {
 
   const handle = async () => {
     setErr(""); setLoading(true);
-    const d = mode === "login" ? await sb.signIn(email, pw) : await sb.signUp(email, pw);
-    setLoading(false);
-    if (d.access_token) onAuth();
-    else if (d.error_description || d.msg) setErr(d.error_description || d.msg);
-    else if (mode === "signup" && d.user) setErr("Bitte bestätige deine E-Mail, dann kannst du dich einloggen.");
+    if (mode === "login") {
+      const d = await sb.signIn(email, pw);
+      setLoading(false);
+      if (d.access_token) onAuth();
+      else setErr(d.error_description || d.msg || "Login fehlgeschlagen.");
+    } else {
+      if (!name.trim()) { setErr("Bitte gib deinen Namen ein."); setLoading(false); return; }
+      const d = await sb.signUp(email, pw);
+      if (d.access_token) {
+        await sb.insert("golf_profiles", { id: d.user.id, display_name: name.trim() });
+        setLoading(false); onAuth();
+      } else if (d.user?.identities?.length === 0) {
+        setLoading(false); setErr("Diese E-Mail ist bereits registriert.");
+      } else if (d.user) {
+        setLoading(false); setErr("Bitte bestätige deine E-Mail, dann kannst du dich einloggen.");
+      } else {
+        setLoading(false); setErr(d.error_description || d.msg || "Registrierung fehlgeschlagen.");
+      }
+    }
   };
 
   return (
@@ -310,18 +325,21 @@ function Auth({ onAuth }) {
           <div style={{ fontFamily: "'DM Serif Display'", fontSize: 26, color: G.green }}>Golf Companion</div>
           <div style={{ fontSize: 13, color: G.mu, marginTop: 4 }}>Dein persönliches Golf-Logbuch</div>
         </div>
+        {mode === "signup" && (
+          <div style={{ marginBottom: 14 }}>
+            <label>Dein Name</label>
+            <input type="text" autoComplete="name" value={name} onChange={e => setName(e.target.value)} placeholder="z.B. Lucas" onKeyDown={e => e.key === "Enter" && handle()} />
+          </div>
+        )}
         <div style={{ marginBottom: 14 }}><label>E-Mail</label><input type="email" inputMode="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="name@example.com" onKeyDown={e => e.key === "Enter" && handle()} /></div>
-        <div style={{ marginBottom: 20 }}><label>Passwort</label><input type="password" autoComplete={mode === "login" ? "current-password" : "new-password"} value={pw} onChange={e => setPw(e.target.value)} placeholder="••••••••" onKeyDown={e => e.key === "Enter" && handle()} /></div>
+        <div style={{ marginBottom: 20 }}><label>Passwort</label><input type="password" autoComplete={mode === "login" ? "current-password" : "new-password"} value={pw} onChange={e => setPw(e.target.value)} placeholder="min. 6 Zeichen" onKeyDown={e => e.key === "Enter" && handle()} /></div>
         {err && <div style={{ color: G.red, fontSize: 13, marginBottom: 14, padding: "10px 13px", background: "#fdecea", borderRadius: 8 }}>{err}</div>}
-        <button className="btn" style={{ width: "100%" }} onClick={handle} disabled={loading}>{loading ? "…" : mode === "login" ? "Einloggen" : "Registrieren"}</button>
+        <button className="btn" style={{ width: "100%" }} onClick={handle} disabled={loading}>{loading ? "…" : mode === "login" ? "Einloggen" : "Konto erstellen"}</button>
         <div style={{ textAlign: "center", marginTop: 16, fontSize: 13, color: G.mu }}>
           {mode === "login" ? "Noch kein Konto? " : "Schon registriert? "}
-          <span style={{ color: G.gm, cursor: "pointer", fontWeight: 500 }} onClick={() => { setMode(mode === "login" ? "signup" : "login"); setErr(""); }}>
+          <span style={{ color: G.gm, cursor: "pointer", fontWeight: 500 }} onClick={() => { setMode(mode === "login" ? "signup" : "login"); setErr(""); setName(""); }}>
             {mode === "login" ? "Registrieren" : "Einloggen"}
           </span>
-        </div>
-        <div style={{ marginTop: 20, padding: "10px 12px", background: "#fff8e1", borderRadius: 8, fontSize: 11, color: "#7a6000", lineHeight: 1.6 }}>
-          <strong>Setup:</strong> Supabase URL + Anon Key in Zeile 4–5 eintragen. SQL-Kommentar im Code einmalig im Supabase SQL-Editor ausführen.
         </div>
       </div>
     </div>
